@@ -1,0 +1,204 @@
+buildscript {
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        jcenter()
+        maven { url "http://repo.maven.apache.org/maven2" }
+    }
+
+    dependencies {
+        classpath "io.ratpack:ratpack-gradle:1.2.0"
+    }
+}
+
+plugins {
+    id 'io.ratpack.ratpack-groovy' version '1.2.0'
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.8'
+}
+
+apply plugin: 'java'
+apply plugin: 'groovy'
+apply plugin: 'idea'
+apply plugin: 'war'
+apply plugin: 'io.ratpack.ratpack-java'
+apply plugin: 'maven'
+
+ext {
+	javaVersion = '1.8'
+    guavaVersion = '18.0'
+    hamcrestVersion = '1.3'
+    junitVersion = '4.11'
+    mockitoVersion = '1.10.8'
+    groovyVersion = '2.4.0'
+    spockVersion = '1.0-groovy-2.4'
+    guavaVersion = '18.0'
+}
+
+sourceCompatibility = javaVersion
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    jcenter()
+}
+
+jar {
+    baseName = 'com.myretail'
+    version = '0.1.0'
+}
+
+sourceSets {
+    /*integration {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }*/
+}
+
+configurations {
+    //integrationCompile.extendsFrom testCompile
+    //integrationRuntime.extendsFrom testRuntime
+}
+
+dependencies {
+    compile "com.google.guava:guava:${guavaVersion}"
+    compile 'org.apache.httpcomponents:httpmime:4.2.4'
+    compile 'org.apache.httpcomponents:httpclient:4.3.4'
+    compile 'javax.validation:validation-api:1.1.0.Final'
+    compile 'org.apache.commons:commons-lang3:3.0'
+    compile 'org.json:json:20090211'
+    compile 'org.apache.logging.log4j:log4j-api:2.5'
+    compile 'org.apache.logging.log4j:log4j-core:2.5'
+    compile 'org.apache.logging.log4j:log4j-slf4j-impl:2.1'
+    compile 'javax.inject:javax.inject:1'
+    compile ratpack.dependency("guice")
+    compile group: 'org.mongodb', name: 'mongo-java-driver', version:'2.10.1'
+
+
+    testCompile "junit:junit:${junitVersion}"
+    testCompile "org.spockframework:spock-core:${spockVersion}"
+    testCompile "org.codehaus.groovy:groovy-all:${groovyVersion}"
+    testCompile "org.mockito:mockito-all:${mockitoVersion}"
+    testCompile "org.hamcrest:hamcrest-all:${hamcrestVersion}"
+    testCompile "org.spockframework:spock-core:0.7-groovy-2.0"
+    testCompile ratpack.dependency('groovy-test')
+
+}
+
+idea {
+    project {
+        jdkName = javaVersion
+        languageLevel = javaVersion
+    }
+}
+
+// Test Structure Start
+sourceSets {
+    main
+    test {
+        groovy {
+            srcDir 'src/test/unit'
+        }
+    }
+
+    testUnit {
+        groovy {
+            srcDir 'src/test/unit'
+        }
+        java {
+            compileClasspath += main.output + test.output
+            runtimeClasspath += main.output + test.output
+        }
+        resources.srcDir 'src/test/unit/resources'
+    }
+
+    testFunctional {
+        groovy {
+            srcDir 'src/test/functional'
+        }
+        java {
+            compileClasspath += main.output + test.output
+            runtimeClasspath += main.output + test.output
+        }
+        resources.srcDir 'src/test/functional/resources'
+    }
+
+    testIntegration {
+        groovy {
+            srcDir 'src/test/integration'
+        }
+        java {
+            compileClasspath += main.output + test.output
+            runtimeClasspath += main.output + test.output
+        }
+        resources.srcDir 'src/test/integration/resources'
+    }
+}
+
+
+dependencies {
+    testFunctionalCompile configurations.testCompile
+    testFunctionalRuntime configurations.testRuntime
+    testIntegrationCompile configurations.testCompile
+    testIntegrationRuntime configurations.testRuntime
+    testUnitCompile configurations.testCompile
+    testUnitRuntime configurations.testRuntime
+}
+
+//Unit test
+task testUnit(type: Test) {
+    testLogging {
+        // Display in command line
+        events 'started', 'passed'
+    }
+
+    description = "Run Unit tests (located in src/test/unit...)."
+    testClassesDir = sourceSets.testUnit.output.classesDir
+    classpath = sourceSets.testUnit.runtimeClasspath
+}
+
+//functional test
+task testFunctional(type: Test) {
+    systemProperty "config.properties" ,"src/main/resources/config.properties"
+    testLogging {
+        events 'started', 'passed'
+    }
+    description = "Run Functional tests (located in src/test/functional/...)."
+    testClassesDir = sourceSets.testFunctional.output.classesDir
+    classpath = sourceSets.testFunctional.runtimeClasspath
+}
+
+//integration test
+task testIntegration(type: Test) {
+    systemProperty "config.properties" ,"src/main/resources/config.properties"
+    testLogging {
+        events 'started', 'passed'
+    }
+    description = "Run Interation tests (located in src/test/integration/...)."
+    testClassesDir = sourceSets.testIntegration.output.classesDir
+    classpath = sourceSets.testIntegration.runtimeClasspath
+}
+
+
+
+task allTests(type: Test, dependsOn: ['test', 'testFunctional', 'testIntegration']) {
+
+}
+
+tasks.withType(Test) {
+    reports.html.destination = file("${reporting.baseDir}/${name}")
+}
+// Test Structure End
+
+task fatJar(type: Jar) {
+    manifest {
+        attributes 'Implementation-Title': 'Gradle Jar File Example',
+                'Main-Class': 'com.myretail.app.Main'
+    }
+    baseName = project.name + '-all'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    exclude "META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA"
+    with jar
+}
